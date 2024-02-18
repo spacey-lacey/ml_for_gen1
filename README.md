@@ -3,7 +3,7 @@ This project is an attempt to replace the trainer AI programmed by the devs with
 As you can see, things are very much under construction.
 
 A rough sketch of the intended process:
-1. Use the data files from [pret/pokered](pret/pokered) to collect move, Pokemon, and trainer data.  Use scripts to create and pickle pandas dataframes for later use.
+1. ~~Use the data files from [pret/pokered](pret/pokered) to collect move, Pokemon, and trainer data.  Use scripts to create and pickle pandas dataframes for later use.~~ **Done!**
 2. Create a python wrapper for the implementation of the battle system in [in-op/PokemonGen1](in-op/PokemonGen1).  It is written in C#, so we'll have to use Python.NET.
 3. Implement a deep-Q reinforcement model with tf-agents and keras. This will use the wrapper to interface with the battle system.
 2. Train the model via some kind of input system I will hopefully set up.  Otherwise we'll train on randomly generated Pokemon.

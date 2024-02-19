@@ -7,7 +7,7 @@ import os
 cwd = os.getcwd().split("/")
 if cwd[-1] == "scripts":
     TOP_PATH = "../../"
-elif cwd[-1] == "data":
+elif cwd[-1] == "data" or cwd[-1] == "build":
     TOP_PATH = "../"
 else: # assume we are in top directory
     TOP_PATH =  ""

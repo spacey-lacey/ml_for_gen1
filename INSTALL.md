@@ -6,5 +6,6 @@ source .venv/bin/activate
 
 Install needed packages:
 ```
-pip install pandas
+pip install pandas pythonnet
+pip install -e local_pathfinder # in base directory
 ```

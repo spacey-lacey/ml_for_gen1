@@ -1,6 +1,7 @@
 #!/bin/python
 import re
 import pandas
+import pickle
 from pathlib import Path
 from pathfinder import find_data_path, find_pokered_path
 

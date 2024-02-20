@@ -3,4 +3,4 @@
 	url = https://github.com/pret/pokered.git
 [submodule "external/PokemonGen1"]
 	path = external/PokemonGen1
-	url = https://github.com/spacey-lacey/PokemonGen1.git
+	url = git@github.com:spacey-lacey/PokemonGen1.git

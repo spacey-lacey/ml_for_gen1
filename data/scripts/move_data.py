@@ -1,10 +1,15 @@
 #!/bin/python
 import re
-import pickle
 import pandas
-from script_tools import *
+from pathlib import Path
+from pathfinder import find_data_path, find_pokered_path
 
-# TODO: add an optional argument for a different pokered path
+
+# find the files we need
+pokered_path = find_pokered_path()
+print(pokered_path)
+move_constants_path = pokered_path / "constants/move_constants.asm"
+move_data_path = pokered_path / "data/moves/moves.asm"
 
 # places to store info we read in
 move_names = []
@@ -19,7 +24,7 @@ pp = {}
 pattern = r"\s*const\s+(?P<name>\w+)"
 skip_lines = [r"const_skip", r"NO_MOVE"]
 i = 0
-with open(MOVE_CONSTANTS_FILE) as f:
+with open(move_constants_path) as f:
     for line in f:
         collect = re.search(pattern, line)
         skip = any([re.search(skip_line, line) for skip_line in skip_lines])
@@ -44,7 +49,7 @@ pattern += r"(?P<power>\d+),\s+"
 pattern += r"(?P<typing>\w+),\s+"
 pattern += r"(?P<accuracy>\d+),\s+"
 pattern += r"(?P<pp>\d+)"
-with open(MOVE_DATA_FILE) as f:
+with open(move_data_path) as f:
     for line in f:
         collect = re.search(pattern, line)
         if collect:
@@ -64,15 +69,12 @@ tuples_dict = {name: (index[name], effect[name], power[name], typing[name], accu
 move_data = pandas.DataFrame.from_dict(tuples_dict, orient="index",
                                        columns=["index", "effect", "power", "type", "accuracy", "pp"])
 # the pandas have arrived...
+
 # create a column to separate attack and status moves
 move_data["damaging"] = move_data["power"] > 0
 
-# pickle
-move_data_filename = PICKLE_PATH + "move_data" + PICKLE_EXT
-move_data.to_pickle(move_data_filename, compression = None, protocol = pickle.DEFAULT_PROTOCOL)
-print("Wrote to", move_data_filename)
-
-move_names_filename = PICKLE_PATH + "move_names" + PICKLE_EXT
-with open(move_names_filename, "wb") as f:
-    pickle.dump(move_names, f)
-print("Wrote to", move_names_filename)
+# pickle and save to data directory
+data_path = find_data_path()
+move_data_path = data_path / "move_data.pkl"
+move_data.to_pickle(move_data_path, compression = None, protocol = pickle.DEFAULT_PROTOCOL)
+print("Wrote to", move_data_path)

@@ -1,28 +1,34 @@
 #!/bin/python
 import re
-import os
-import pickle
 import pandas
-from script_tools import *
+from pathlib import Path
+from pathfinder import find_data_path, find_pokered_path
 
-# TODO: add an optional argument for a different pokered path
+
+# find the files we need
+pokered_path = find_pokered_path()
+pokemon_constants_path = pokered_path / "constants/pokemon_constants.asm"
+pokedex_constants_path = pokered_path / "constants/pokedex_constants.asm"
+pokemon_base_stats_dir_path = pokered_path / "data/pokemon/base_stats"
+pokemon_evos_moves_path = pokered_path / "data/pokemon/evos_moves.asm"
 
 # places to store info we read in
 pokemon_names = []
 index = {}
 dex_no = {}
-typing = {} # "type" is reserved
+typing = {} # "type" is reserved :/
 catch_rate = {}
 learnset = {}
 tmhm_moves = {}
 evolution = {}
 preevolution = {}
 
-# get indices from table in constants file
-pattern = r"const\s+(?P<name>\w+)"
+
+# get "internal indices" from table in constants file
+pattern = r"const\s+(?P<name>\w+)" # name = pokemon name
 skip_lines = [r"const_skip", r"NO_MON", r"FOSSIL", r"MON_GHOST"]
 i = 0
-with open(POKEMON_CONSTANTS_FILE) as f:
+with open(pokemon_constants_path) as f:
     for line in f:
         collect = re.search(pattern, line)
         skip = any([re.search(skip_line, line) for skip_line in skip_lines])
@@ -39,9 +45,9 @@ with open(POKEMON_CONSTANTS_FILE) as f:
             continue
 
 # get dex numbers from table in constants file
-pattern = r"const\s+DEX_(?P<name>\w+)"
+pattern = r"const\s+DEX_(?P<name>\w+)" # name = pokemon name
 i = 1
-with open(POKEDEX_CONSTANTS_FILE) as f:
+with open(pokedex_constants_path) as f:
     for line in f:
         collect = re.search(pattern, line)
         if collect:
@@ -54,25 +60,26 @@ with open(POKEDEX_CONSTANTS_FILE) as f:
             continue
 
 
-# get info from base stats
-# these are all in separate files so it's kind of a pain
-# plus they're written in lowercase with no underscores
-
-# map lowercase name to properly formatted (uppercase) name
+# get info from base stats, which are in separate files
+# the names of the files are the pokemon names in lowercase with no underscores
+# so we map lowercase name to properly formatted (uppercase) name
 formatted_pokemon_name = dict({(name.lower().replace("_", ""), name) for name in pokemon_names})
 
-# so many patterns
 type_pattern = r"(?P<type1>\w+),\s*(?P<type2>\w+)\s*;\s*type"
 catch_rate_pattern = r"(?P<rate>\d+)\s*;\s*catch rate"
 learnset_pattern = r"(?P<move1>\w+),\s*(?P<move2>\w+),\s*(?P<move3>\w+),\s*(?P<move4>\w+)\s*;\s*level 1 learnset"
+
+# tmhm moves list has an arbitrary number of rows/columns
+# so look for the line above and the line below to start/stop tmhm moves
 tmhm_begin_pattern = r"\s*tmhm\s*"
 tmhm_end_pattern = r";\s*end"
 
-for filename in os.listdir(POKEMON_BASE_STATS_DIR):
-    lowercase_name = filename.removesuffix(".asm")
+for file_name in pokemon_base_stats_dir_path.glob("*.asm"):
+    lowercase_name = file_name.stem
     name = formatted_pokemon_name[lowercase_name]
-    collecting_tmhm = False
-    with open(POKEMON_BASE_STATS_DIR + filename) as f:
+    collecting_tmhm = False # whether we are in the tmhm list
+
+    with open(file_name) as f:
         for line in f:
             collect_types = re.search(type_pattern, line)
             collect_catch_rate = re.search(catch_rate_pattern, line)
@@ -97,8 +104,7 @@ for filename in os.listdir(POKEMON_BASE_STATS_DIR):
                     move = collect_learnset.group("move" + str(i))
                     if move != "NO_MOVE":
                         moves.append(move)
-                # this is the level 1 learnset
-                learnset[name] = [(1, move) for move in moves]
+                learnset[name] = [(1, move) for move in moves] # lv 1 learnset
 
             elif begin_collect_tmhm:
                 collecting_tmhm = True
@@ -118,18 +124,19 @@ for filename in os.listdir(POKEMON_BASE_STATS_DIR):
                 continue
 
 
-# finally, evolutions and learnset
-# in this file the pokemon names have initial capitals and some unserscores (:
-new_pokemon_pattern = r"(?P<name>\w+)EvosMoves:"
-evos_begin_pattern = r";\s*Evolutions"
-moves_begin_pattern = r";\s*Learnset"
-found_evo_pattern = r"(?P<level>\d+),\s*(?P<pokemon>\w+)"
-found_move_pattern = r"(?P<level>\d+),\s*(?P<move>\w+)"
-collecting_evos = False
-collecting_moves = False
-name = ""
+# finally, evolutions and level-up learnsets
+# here the pokemon names have initial capitals and some underscores (:
+new_pokemon_pattern = r"(?P<name>\w+)EvosMoves:" # name is pokemon name
 
-with open(POKEMON_EVOS_MOVES_FILE) as f:
+# the number of evlutions is arbitrary, but there's one per line
+evos_begin_pattern = r";\s*Evolutions"
+found_evo_pattern = r"(?P<level>\d+),\s*(?P<pokemon>\w+)" # pokemon it evolves into
+# same with the moves
+moves_begin_pattern = r";\s*Learnset"
+found_move_pattern = r"(?P<level>\d+),\s*(?P<move>\w+)"
+collecting_evos = False # these need to be here
+collecting_moves = False
+with open(pokemon_evos_moves_path) as f:
     for line in f:
         new_pokemon = re.search(new_pokemon_pattern, line)
         begin_collect_evos = re.search(evos_begin_pattern, line)
@@ -139,6 +146,7 @@ with open(POKEMON_EVOS_MOVES_FILE) as f:
 
         if new_pokemon:
             collecting_moves = False
+            # convert Camel_Case pokemon names to lowercase
             lowercase_name = new_pokemon.group("name").lower().replace("_", "")
             try:
                 name = formatted_pokemon_name[lowercase_name]
@@ -149,7 +157,7 @@ with open(POKEMON_EVOS_MOVES_FILE) as f:
             evolution[name] = []
             collecting_evos = True
         elif collecting_evos and found_evo:
-            # the name of the evolution is formatted properly
+            # the name of the evolution is written like POKEMON_NAME
             evolution[name].append((int(found_evo.group("level")), found_evo.group("pokemon")))
 
         elif begin_collect_moves:
@@ -177,11 +185,7 @@ pokemon_data = pandas.DataFrame.from_dict(tuples_dict, orient="index",
                                           columns=["index", "dex_no", "type", "catch_rate", "learnset", "tmhm_moves", "evolution", "preevolution"])
 
 # pickle
-pokemon_data_filename = PICKLE_PATH + "pokemon_data" + PICKLE_EXT
-pokemon_data.to_pickle(pokemon_data_filename, compression = None, protocol = pickle.DEFAULT_PROTOCOL)
-print("Wrote to", pokemon_data_filename)
-
-pokemon_names_filename = PICKLE_PATH + "pokemon_names" + PICKLE_EXT
-with open(pokemon_names_filename, "wb") as f:
-    pickle.dump(pokemon_names, f)
-print("Wrote to", pokemon_names_filename)
+data_path = find_data_path() # save the files here
+pokemon_data_path = data_path / "pokemon_data.pkl"
+pokemon_data.to_pickle(pokemon_data_path, compression = None, protocol = pickle.DEFAULT_PROTOCOL)
+print("Wrote to", pokemon_data_path)

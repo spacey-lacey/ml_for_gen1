@@ -111,7 +111,6 @@ tuples_dict = {name: (index[name], ai_type[name], parties[name], n_parties[name]
                for name in trainer_classes}
 trainer_data = pandas.DataFrame.from_dict(tuples_dict, orient="index",
                                           columns=["index", "ai_type", "parties", "n_parties"])
-print(trainer_data)
 
 # pickle
 data_path = find_data_path() # save to data dir
